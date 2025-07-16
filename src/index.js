@@ -1,13 +1,31 @@
 // require('dotenv').config({path:'./env'})
 import connectDB from './db/dbIndex.js'
 import  dotenv  from 'dotenv';
+import app from './app.js'
+import cors from 'cors'
+import cookieParser from 'cookie-parser'
 
+
+//making env available everywhere
 dotenv.config({
     path:'./env'
 })
 
+//connecting DataBase
+connectDB()
+.then(
+    app.on("error",(error)=>{
+        console.log("ERRR",error)
+        throw error 
+    })
 
-connectDB();
+    app.listen(process.env.PORT || 8000,()=>{
+        console.log(`Server is Running at PORT : ${process.env.PORT} `)
+    })
+)
+.catch((err)=>{
+    console.log("MONGODB connection failed !!!",err)
+})
 
 
 
