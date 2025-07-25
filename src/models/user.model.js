@@ -5,11 +5,11 @@ import brcrypt from 'bcrypt'
 // definting the User Model
 const UserSchema=new Schema(
     {
-        userName: {
+        username: {
             type:String,
             required:true,
             unique:true,
-            lowecase:true,
+            lowercase:true,
             trim:true,
             index: true,//to enavle optimized searching
         },
@@ -20,7 +20,7 @@ const UserSchema=new Schema(
             lowecase:true,
             trim:true
         },
-        fullName: {
+        fullname: {
             type:String,
             required:true,
             trim:true,
@@ -70,8 +70,8 @@ const UserSchema=new Schema(
             {
                 _id: this.id,
                 email: this.email,
-                username : this.userName,
-                fullName : this.fullName
+                username : this.username,
+                fullname : this.fullname
             },
             
             process.env.ACCESS_TOKEN_SECRET,
