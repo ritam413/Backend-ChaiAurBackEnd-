@@ -4,6 +4,23 @@ import {User} from '../models/user.model.js'
 import { upload } from "../middlewares/multer.middleware.js";
 import { uploadResultonCloudinary } from "../utils/cloudinary.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { url } from "inspector";
+
+const generateAccessAndRefreshTokens = async(userId)=>{
+    try{
+        const user = await User.findById(userId)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+        user.refreshToken = refreshToken
+        await user.save({validateBeforeSave:false})
+    
+        return {accessToken,refreshToken}
+    }catch(error){
+        throw new apiError(500,"Something went wrong while generating refersh and access tokens")
+    }
+}
+
 
 const registerUser = asyncHandler(async (req,res)=>{
     // console.log("BODY:", req.body);
@@ -50,9 +67,18 @@ const registerUser = asyncHandler(async (req,res)=>{
     console.log("User existence check complete");
    
 // image Validation
+    //formy knoledge
+        console.log("Req FILES :- ",JSON.stringify(req.files,null,2));
+        
     const avatarLocalPath = req.files?.avatar?.[0]
     const coverImageLocalPath = req.files?.coverImage?.[0]
-console.log(`Uploading file to Cloudinary`);
+
+    // let coverImageLocalPath 
+    // if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0  ) {
+    //     coverImageLocalPath= req.files.coverImage[0].path
+    // }
+
+    console.log(`Uploading file to Cloudinary`);
 
     if(!avatarLocalPath){
         throw new apiError(400,'Avatar is Required')
@@ -91,11 +117,11 @@ console.log(`Uploading file to Cloudinary`);
 try{    
         const newUser = await User.create({
             fullname,
-            avatar: avatar.url,
-            coverImage:coverImage?.url|| "",
             email,
             password,
             username: username.toLowerCase(),
+            avatar: avatar.url,
+            coverImage:coverImage?.url||""
         })
 
     // Validation of User amd removing refresh token and Passowrd
@@ -123,4 +149,89 @@ try{
     }
 })
 
-export { registerUser }
+const loginUser = asyncHandler(async(req,res)=>{
+    // req body -> data 
+    // username or email 
+    // then check in data base if exist, serach for password  
+    // if password match too , give accesstoken and refresh token (it is automatically generated in model , via our code )
+    // send token using Cookies
+
+    const {email,username,password} = req.body
+
+    if(!email && !username){
+        throw new apiError(400,"username or Email is required ")
+    }
+
+    if(!password || password.trim() === ""){
+        throw new apiError(400,"password is required")
+    }
+
+    const  user =await User.findOne({
+        $or: [{username},{email}]
+    })
+
+    if(!user){
+        throw new apiError(404,"User does not Exist")
+    }
+
+    const isPasswordValid = await user.isPasswordCorrect (password)
+
+    if(!isPasswordValid) {
+        throw new apiError(401,"Invalid user Credentials")
+    }
+
+    const { accessToken,refreshToken } = await generateAccessAndRefreshTokens(user._id)
+
+    const  loggedinUser = await User.findById(user._id).select("-password -refreshToken")
+
+    const options ={
+        httpOnly: true,
+        secure:false,
+        sameSite: 'lax'
+    }
+
+    return res 
+    .status(200)
+    .cookie("accessToken",accessToken,options)
+    .cookie("refreshToken",refreshToken,options)
+    .json(
+        new apiResponse(
+            200,
+            {
+                user: loggedinUser, 
+                accessToken , 
+                refreshToken ,
+            },
+            "User Logged in SUCCESSFULLY !!"
+        )
+    )
+
+})
+
+const logoutUser = asyncHandler(async(req,res)=>{
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                refreshToken: undefined,
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options ={
+        httpOnly: true,
+        secure:false,
+        sameSite:'lax'
+    }
+
+    return res
+    .status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json(new apiResponse(200,{},"User Looged Out"))
+})
+
+export { registerUser , loginUser ,logoutUser}

@@ -1,6 +1,6 @@
 import mongoose , {Schema} from 'mongoose'
 import jwt from 'jsonwebtoken'
-import brcrypt from 'bcrypt'    
+import bcrypt from 'bcrypt'    
 
 // definting the User Model
 const UserSchema=new Schema(
@@ -54,14 +54,14 @@ const UserSchema=new Schema(
 )
 //Encrypting password before saving 
     UserSchema.pre("save", async function(next){
-        if(!this.isModified('password')) return 
+        if(!this.isModified('password')) return next()
 
-        this.password = await brcrypt.hash(this.password,10)
+        this.password = await bcrypt.hash(this.password,10)
         next()
     })
 // Validating if the Password is correct
     UserSchema.methods.isPasswordCorrect = async function (password) {
-        return await brcrypt.compare(password,this.password)
+        return await bcrypt.compare(password,this.password)
     }
 
 //generating AccessToken
